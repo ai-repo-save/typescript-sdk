@@ -56,7 +56,8 @@ export const guideSidebar: DefaultTheme.SidebarItem[] = [
             { text: 'OAuth', link: '/clients/oauth' },
             { text: 'Machine auth', link: '/clients/machine-auth' },
             { text: 'Middleware', link: '/clients/middleware' },
-            { text: 'Caching', link: '/clients/caching' }
+            { text: 'Caching', link: '/clients/caching' },
+            { text: 'Diagnostics', link: '/clients/diagnostics' }
         ]
     },
     { text: 'Protocol versions', link: '/protocol-versions' },

@@ -1,5 +1,11 @@
 # @modelcontextprotocol/client
 
+## 2.3.2+bluebird.1
+
+### Patch Changes
+
+- Route client and OAuth diagnostics through optional instance-scoped logger sinks. Default console output and protocol behavior remain unchanged. This client-only fork release retains the other SDK packages at upstream 2.3.1.
+
 ## 2.3.1
 
 ### Patch Changes
