@@ -17,7 +17,8 @@ beforeAll(async () => {
 
 it('routes client and OAuth diagnostics to the instance sink without changing their contents', () => {
     const directory = mkdtempSync(join(tmpdir(), 'mcp-diagnostics-'));
-    const file = join(directory, 'diagnostics.log');
+    const debugFile = join(directory, 'debug.log');
+    const warnFile = join(directory, 'warn.log');
     const script = `
         import { appendFileSync } from 'node:fs';
         import { createServer } from 'node:http';
@@ -40,12 +41,13 @@ it('routes client and OAuth diagnostics to the instance sink without changing th
         await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
         origin = 'http://127.0.0.1:' + server.address().port;
         const logger = process.argv[1] === 'custom'
-            ? { debug: message => appendFileSync(${JSON.stringify(file)}, message + '\\n'), warn: message => appendFileSync(${JSON.stringify(file)}, message + '\\n') }
+            ? { debug: message => appendFileSync(${JSON.stringify(debugFile)}, message + '\\n'), warn: message => appendFileSync(${JSON.stringify(warnFile)}, message + '\\n') }
             : undefined;
         const client = new Client({ name: 'diagnostics', version: '1.0.0' }, { logger, versionNegotiation: { mode: { pin: '2026-07-28' } } });
         try {
             await client.connect(new StreamableHTTPClientTransport(new URL(origin + '/mcp')));
             await client.listTools();
+            await client.listPrompts();
             let tokens = { access_token: 'expired', refresh_token: 'revoked', token_type: 'Bearer', issuer: origin };
             await auth({
                 logger,
@@ -83,7 +85,8 @@ it('routes client and OAuth diagnostics to the instance sink without changing th
         expect({ status: routed.status, signal: routed.signal, error: routed.error, stdout: routed.stdout, stderr: routed.stderr }).toEqual(
             { status: 0, signal: null, error: undefined, stdout: '', stderr: '' }
         );
-        expect(readFileSync(file, 'utf8').trim().split('\n').sort()).toEqual((baseline.stdout + baseline.stderr).trim().split('\n').sort());
+        expect(readFileSync(debugFile, 'utf8').trim().split('\n').sort()).toEqual(baseline.stdout.trim().split('\n').sort());
+        expect(readFileSync(warnFile, 'utf8').trim().split('\n').sort()).toEqual(baseline.stderr.trim().split('\n').sort());
     } finally {
         rmSync(directory, { recursive: true, force: true });
     }
