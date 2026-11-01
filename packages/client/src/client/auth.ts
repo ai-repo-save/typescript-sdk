@@ -119,7 +119,7 @@ export interface OAuthClientInformationContext {
  * as `undefined`, so a credential issued by one authorization server is never reused
  * at another — the flow falls through to re-registration / re-authorization exactly
  * as if nothing were stored. An unstamped value (legacy provider or pre-SEP-2352
- * storage) is returned as-is with a `console.warn`; {@linkcode auth} writes the
+ * storage) is returned as-is with a warning to the configured logger; {@linkcode auth} writes the
  * stamp back on first use so the window closes after one call.
  *
  * {@linkcode auth} stamps every value it writes via `saveTokens` / `saveClientInformation`,
@@ -134,14 +134,14 @@ export interface OAuthClientInformationContext {
 export function discardIfIssuerMismatch<T extends { issuer?: string }>(
     stored: T | null | undefined,
     issuer: string,
-    opts?: { canPersistStamp?: boolean }
+    opts?: { canPersistStamp?: boolean; logger?: Pick<Console, 'warn'> }
 ): T | undefined {
     // Nothing stored (`null` from a `JSON.parse(storage.getItem(...))`-style getter included).
     if (!stored) return undefined;
     // A stamp that is not a string (raw storage) counts as no stamp.
     if (typeof stored.issuer !== 'string') {
         if (opts?.canPersistStamp !== false) {
-            console.warn(
+            (opts?.logger ?? console).warn(
                 `[mcp-sdk] SEP-2352: stored OAuth credential has no 'issuer' stamp (pre-upgrade storage or ` +
                     `provider not round-tripping the value). SEP-2352 isolation is inactive for this read; ` +
                     `ensure your provider round-trips the issuer field.`
@@ -246,6 +246,9 @@ export function adaptOAuthProvider(
  * No changes are needed to existing implementations.
  */
 export interface OAuthClientProvider {
+    /** Diagnostic sink for this provider's authorization flows. Defaults to `console`. */
+    logger?: Pick<Console, 'warn'>;
+
     /**
      * The URL to redirect the user agent to after authorization.
      * Return `undefined` for non-interactive flows that don't require user interaction
@@ -1051,7 +1054,7 @@ function warnCredentialInvalidation(provider: OAuthClientProvider, error: OAuthE
     // JSON-stringify the AS-supplied values so attacker-supplied control characters cannot
     // forge log lines — the authorization server is resolved from the resource server's
     // metadata, and both `code` and `message` are echoed from its response verbatim.
-    console.warn(`[mcp-sdk] OAuth ${JSON.stringify(error.code)} — ${action}. Cause: ${JSON.stringify(error.message)}`);
+    (provider.logger ?? console).warn(`[mcp-sdk] OAuth ${JSON.stringify(error.code)} — ${action}. Cause: ${JSON.stringify(error.message)}`);
 }
 
 /**
@@ -1247,7 +1250,7 @@ async function authInternal(
                     issuer
                 );
             }
-            console.warn(
+            (provider.logger ?? console).warn(
                 '[mcp-sdk] OAuthClientProvider does not implement saveDiscoveryState()/discoveryState(); ' +
                     'the SEP-2352 callback-leg authorization-server binding cannot be checked. ' +
                     'Implement discoveryState (persist alongside codeVerifier) — see docs/migration/upgrade-to-v2.md §SEP-2352.'
@@ -1287,7 +1290,8 @@ async function authInternal(
     // re-registers exactly as if nothing were stored.
     const rawClientInfo = await Promise.resolve(provider.clientInformation(infoCtx));
     let clientInformation = discardIfIssuerMismatch(rawClientInfo, issuer, {
-        canPersistStamp: provider.saveClientInformation !== undefined
+        canPersistStamp: provider.saveClientInformation !== undefined,
+        logger: provider.logger
     });
     if (clientInformation === undefined && rawClientInfo?.issuer && provider.saveClientInformation === undefined) {
         // Static-credential provider (no DCR) whose `expectedIssuer` stamp names a different
@@ -1372,7 +1376,7 @@ async function authInternal(
 
     // SEP-2352: a refresh_token stamped for a different authorization server reads back
     // as `undefined`, so it is never POSTed to this AS's token endpoint.
-    let tokens = discardIfIssuerMismatch(await provider.tokens(infoCtx), issuer);
+    let tokens = discardIfIssuerMismatch(await provider.tokens(infoCtx), issuer, { logger: provider.logger });
     if (tokens && tokens.issuer === undefined) {
         // SEP-2352 back-stamp: bind a legacy unstamped token set to the first-resolved AS
         // so the stamp check is effective from the next call onward.
@@ -1411,7 +1415,7 @@ async function authInternal(
                 // redirectToAuthorization() is a no-op — so say why it happened.
                 // JSON-stringify the cause: on the non-OAuth-shaped path it carries the raw
                 // response body, so it is arbitrary attacker-supplied bytes.
-                console.warn(
+                (provider.logger ?? console).warn(
                     `[mcp-sdk] Could not refresh OAuth tokens; falling back to a new authorization request. ` +
                         `Cause: ${JSON.stringify(error instanceof Error ? error.message : String(error))}`
                 );
@@ -2452,7 +2456,7 @@ export async function fetchToken(
     const issuer = metadata?.issuer ?? String(authorizationServerUrl);
     const readClientInformation = async () => {
         const rawClientInfo = await provider.clientInformation({ issuer });
-        const checked = discardIfIssuerMismatch(rawClientInfo, issuer, { canPersistStamp: false });
+        const checked = discardIfIssuerMismatch(rawClientInfo, issuer, { canPersistStamp: false, logger: provider.logger });
         if (rawClientInfo && checked === undefined) {
             throw new AuthorizationServerMismatchError(String(rawClientInfo.issuer), issuer);
         }
