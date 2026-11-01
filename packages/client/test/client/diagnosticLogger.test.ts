@@ -40,7 +40,7 @@ it('routes client and OAuth diagnostics to the instance sink without changing th
         await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
         origin = 'http://127.0.0.1:' + server.address().port;
         const logger = process.argv[1] === 'custom'
-            ? { debug: message => appendFileSync(${JSON.stringify(file + '.debug')}, message + '\\n'), warn: message => appendFileSync(${JSON.stringify(file)}, message + '\\n') }
+            ? { debug: message => appendFileSync(${JSON.stringify(file)}, message + '\\n'), warn: message => appendFileSync(${JSON.stringify(file)}, message + '\\n') }
             : undefined;
         const client = new Client({ name: 'diagnostics', version: '1.0.0' }, { logger, versionNegotiation: { mode: { pin: '2026-07-28' } } });
         try {
@@ -83,7 +83,7 @@ it('routes client and OAuth diagnostics to the instance sink without changing th
         expect({ status: routed.status, signal: routed.signal, error: routed.error, stdout: routed.stdout, stderr: routed.stderr }).toEqual(
             { status: 0, signal: null, error: undefined, stdout: '', stderr: '' }
         );
-        expect(readFileSync(file, 'utf8')).toBe(baseline.stderr);
+        expect(readFileSync(file, 'utf8').trim().split('\n').sort()).toEqual((baseline.stdout + baseline.stderr).trim().split('\n').sort());
     } finally {
         rmSync(directory, { recursive: true, force: true });
     }
