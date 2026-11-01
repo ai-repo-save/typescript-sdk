@@ -11,8 +11,9 @@ import { ensureBuilt } from '../helpers/ensureBuilt';
 const pkgDir = fileURLToPath(new URL('../..', import.meta.url));
 
 beforeAll(async () => {
+    await ensureBuilt(fileURLToPath(new URL('../../../core', import.meta.url)));
     await ensureBuilt(pkgDir);
-}, 180_000);
+}, 240_000);
 
 it('routes client and OAuth diagnostics to the instance sink without changing their contents', () => {
     const directory = mkdtempSync(join(tmpdir(), 'mcp-diagnostics-'));
