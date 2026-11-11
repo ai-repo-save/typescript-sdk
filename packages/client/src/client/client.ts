@@ -183,6 +183,9 @@ export function getSupportedElicitationModes(capabilities: ClientCapabilities['e
 }
 
 export type ClientOptions = ProtocolOptions & {
+    /** Diagnostic sink for this client. Defaults to `console`. */
+    logger?: Pick<Console, 'debug' | 'warn'>;
+
     /**
      * Capabilities to advertise as being supported by this client.
      */
@@ -572,6 +575,7 @@ export class Client extends Protocol<ClientContext> {
      * read fresh on every connect (legacy or modern), never consumed.
      */
     private readonly _listChangedConfig?: ListChangedHandlers;
+    private readonly _diagnosticLogger: Pick<Console, 'debug' | 'warn'>;
     private _enforceStrictCapabilities: boolean;
     private _versionNegotiation?: VersionNegotiationOptions;
     private _supportedProtocolVersionsOption?: string[];
@@ -659,6 +663,7 @@ export class Client extends Protocol<ClientContext> {
     ) {
         super(options);
         if (options?.openTelemetry !== false) setProtocolInstrumentation(this, defaultInstrumentation());
+        this._diagnosticLogger = options?.logger ?? console;
         this._capabilities = options?.capabilities ? { ...options.capabilities } : {};
         this._jsonSchemaValidator = options?.jsonSchemaValidator ?? new DefaultJsonSchemaValidator();
         this._enforceStrictCapabilities = options?.enforceStrictCapabilities ?? false;
@@ -1631,7 +1636,9 @@ export class Client extends Protocol<ClientContext> {
     async listPrompts(params?: ListPromptsRequest['params'], options?: CacheableRequestOptions): Promise<ListPromptsResult> {
         if (!this._serverCapabilities?.prompts && !this._enforceStrictCapabilities) {
             // Respect capability negotiation: server does not support prompts
-            console.debug('Client.listPrompts() called but server does not advertise prompts capability - returning empty list');
+            this._diagnosticLogger.debug(
+                'Client.listPrompts() called but server does not advertise prompts capability - returning empty list'
+            );
             return { prompts: [] };
         }
         if (params?.cursor !== undefined) {
@@ -1671,7 +1678,9 @@ export class Client extends Protocol<ClientContext> {
     async listResources(params?: ListResourcesRequest['params'], options?: CacheableRequestOptions): Promise<ListResourcesResult> {
         if (!this._serverCapabilities?.resources && !this._enforceStrictCapabilities) {
             // Respect capability negotiation: server does not support resources
-            console.debug('Client.listResources() called but server does not advertise resources capability - returning empty list');
+            this._diagnosticLogger.debug(
+                'Client.listResources() called but server does not advertise resources capability - returning empty list'
+            );
             return { resources: [] };
         }
         if (params?.cursor !== undefined) {
@@ -1700,7 +1709,7 @@ export class Client extends Protocol<ClientContext> {
     ): Promise<ListResourceTemplatesResult> {
         if (!this._serverCapabilities?.resources && !this._enforceStrictCapabilities) {
             // Respect capability negotiation: server does not support resources
-            console.debug(
+            this._diagnosticLogger.debug(
                 'Client.listResourceTemplates() called but server does not advertise resources capability - returning empty list'
             );
             return { resourceTemplates: [] };
@@ -2559,7 +2568,7 @@ export class Client extends Protocol<ClientContext> {
     async listTools(params?: ListToolsRequest['params'], options?: CacheableRequestOptions): Promise<ListToolsResult> {
         if (!this._serverCapabilities?.tools && !this._enforceStrictCapabilities) {
             // Respect capability negotiation: server does not support tools
-            console.debug('Client.listTools() called but server does not advertise tools capability - returning empty list');
+            this._diagnosticLogger.debug('Client.listTools() called but server does not advertise tools capability - returning empty list');
             return { tools: [] };
         }
         if (params?.cursor !== undefined) {
@@ -2606,7 +2615,9 @@ export class Client extends Protocol<ClientContext> {
         const filtered = result.tools.filter(tool => {
             const scan = scanXMcpHeaderDeclarations(tool.inputSchema);
             if (!scan.valid) {
-                console.warn(`[mcp-sdk] excluding tool '${tool.name}' from tools/list: invalid x-mcp-header declaration — ${scan.reason}`);
+                this._diagnosticLogger.warn(
+                    `[mcp-sdk] excluding tool '${tool.name}' from tools/list: invalid x-mcp-header declaration — ${scan.reason}`
+                );
                 return false;
             }
             return true;

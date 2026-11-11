@@ -58,7 +58,8 @@ export const guideSidebar: DefaultTheme.SidebarItem[] = [
             { text: 'Machine auth', link: '/clients/machine-auth' },
             { text: 'Middleware', link: '/clients/middleware' },
             { text: 'Caching', link: '/clients/caching' },
-            { text: 'Skills', link: '/clients/skills' }
+            { text: 'Skills', link: '/clients/skills' },
+            { text: 'Diagnostics', link: '/clients/diagnostics' }
         ]
     },
     { text: 'Protocol versions', link: '/protocol-versions' },

@@ -1,5 +1,11 @@
 # @modelcontextprotocol/client
 
+## 2.4.1+bluebird.1
+
+### Patch Changes
+
+- Route client and OAuth diagnostics through optional instance-scoped logger sinks. Default console output and protocol behavior remain unchanged.
+
 ## 2.4.0
 
 ### Minor Changes
